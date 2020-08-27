@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2019, 2020 Nikita (sh1r4s3) Ermakov <sh1r4s3@mail.si-head.nl>
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef RUNNS_H
 #define RUNNS_H
 

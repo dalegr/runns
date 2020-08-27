@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2019, 2020 Nikita (sh1r4s3) Ermakov <sh1r4s3@mail.si-head.nl>
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "runns.h"
 
 // Emit error message and exit
