@@ -30,8 +30,7 @@ before_exit()
 [ $# -ge 1 ] || help
 
 # Parse command line arguments
-TMPARGS="$(getopt -n "$0" -o n:,f,r:,h -l name:,disable-forward,reattach:,help -- "$@")" ||
-	  help
+TMPARGS="$(getopt -n "$0" -o n:,f,r:,h -l name:,disable-forward,reattach:,help -- "$@")" || help
 eval set -- "$TMPARGS"
 
 NS=

@@ -26,8 +26,7 @@ EOF
 }
 
 # Parse command line arguments
-TMPARGS="$(getopt -n "$0" -o n:,i:,o:,s:,r:,h -l name:,int:,out:,section:,resolve:,help -- "$@")" ||
-	  help
+TMPARGS="$(getopt -n "$0" -o n:,i:,o:,s:,r:,h -l name:,int:,out:,section:,resolve:,help -- "$@")" || help
 eval set -- "$TMPARGS"
 
 NS=
