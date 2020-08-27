@@ -150,13 +150,5 @@ fi
 iptables -A FORWARD -i $INT -o $OUT -j ACCEPT
 iptables -A FORWARD -o $INT -i $OUT -j ACCEPT
 
-# Launch commands in the new network namespace
-awk -F '=' -v section="[$SECTION]" '
-BEGIN{ IGNORECASE = 1}
-$0==section { flag=1; next }
-/\[/{ flag=0; next }
-flag && $1=="vpn"{ print $2 }
-' $CONFIG | (while read arg; do ip netns exec "$NS" openvpn --daemon "openvpn-$NS" --config "$arg"; done)
-
 [ -z "${ROOT_EXEC-}" ] || ip netns exec "$NS" exec "$ROOT_EXEC" > /dev/null 2>&1 &
 [ -z "${USER_EXEC-}" ] || ip netns exec "$NS" su - -c "$USER_EXEC" "$USER_NAME" > /dev/null 2>&1 &
