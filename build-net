@@ -39,7 +39,7 @@ read_section()
 }
 
 # Parse command line arguments
-TMPARGS="$(getopt -n "$0" -o n:,i:,o:,s:,r:,h -l name:,int:,out:,section:,resolve:,help -- "$@")" || help
+TMPARGS="$(getopt -n "$0" -o n:,i:,o:,s:,r:,u:,h -l name:,int:,out:,section:,resolve:,uid::,user-exec:,help -- "$@")" || help
 eval set -- "$TMPARGS"
 
 NS=
@@ -63,11 +63,22 @@ do
             shift; SECTION="$1" ;;
         -r|--resolve)
             shift; RESOLVE="$1" ;;
+        --root-exec)
+            shift; ROOT_EXEC="$1" ;;
+        -u|--username)
+            shift; USER_NAME="$1" ;;
+        --user-exec)
+            shift; USER_EXEC="$1" ;;
         *)
             help ;;
     esac
     shift
 done
+
+# If --user-exec option is provided, check that uid are also set
+if [ -n "${USER_EXEC-}" ]; then
+    [ -n "${USER_NAME-}" ] || { echo "username was not set"; exit 1; }
+fi
 
 # Load configuration file if it was specified
 if [ -n "$SECTION" ]; then
@@ -78,6 +89,9 @@ if [ -n "$SECTION" ]; then
     [ -n "$OUT" ] || OUT="$(read_section InterfaceOut)"
     # Read resolve.conf
     [ -n "$RESOLVE" ] || RESOLVE="$(read_section Resolve)"
+    # Read what root and user should execute
+    [ -n "$ROOT_EXEC" ] || ROOT_EXEC="$(read_section RootExec)"
+    [ -n "$USER_EXEC" ] || USER_EXEC="$(read_section UserExec)"
 fi
 
 # If NS is empty set the default value "vpn$MAXNS"
@@ -143,3 +157,6 @@ $0==section { flag=1; next }
 /\[/{ flag=0; next }
 flag && $1=="vpn"{ print $2 }
 ' $CONFIG | (while read arg; do ip netns exec "$NS" openvpn --daemon "openvpn-$NS" --config "$arg"; done)
+
+[ -z "${ROOT_EXEC-}" ] || ip netns exec "$NS" exec "$ROOT_EXEC" > /dev/null 2>&1 &
+[ -z "${USER_EXEC-}" ] || ip netns exec "$NS" su - -c "$USER_EXEC" "$USER_NAME" > /dev/null 2>&1 &
