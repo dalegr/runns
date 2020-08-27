@@ -25,6 +25,19 @@ EOF
     exit 0
 }
 
+read_section()
+{
+    [ -f "${CONFIG-}" ] || { echo "No config file was specified"; exit 1; }
+    [ "$#" -eq "1" ] || { echo "Not enough number of arguments"; exit 1; }
+
+    awk -F '=' -v section="[${SECTION-}]" -v field="$1" '
+    BEGIN{ IGNORECASE = 1}
+    $0==section { flag=1; next }
+    /\[/{ flag=0; next }
+    flag && $1==field{ print $2; exit }
+    ' $CONFIG
+}
+
 # Parse command line arguments
 TMPARGS="$(getopt -n "$0" -o n:,i:,o:,s:,r:,h -l name:,int:,out:,section:,resolve:,help -- "$@")" || help
 eval set -- "$TMPARGS"
@@ -59,32 +72,12 @@ done
 # Load configuration file if it was specified
 if [ -n "$SECTION" ]; then
     # Read network namespace if it is not set
-    [ -n "$NS" ] || NS="$(awk -F '=' -v section="[$SECTION]" '
-BEGIN{ IGNORECASE = 1}
-$0==section { flag=1; next }
-/\[/{ flag=0; next }
-flag && $1=="NetworkNamespace"{ print $2; exit }
-' $CONFIG)"
+    [ -n "$NS" ] || NS="$(read_section NetworkNamespace)"
     # Read interfaces name if it is not set
-    [ -n "$INT" ] || INT="$(awk -F '=' -v section="[$SECTION]" '
-BEGIN{ IGNORECASE = 1}
-$0==section { flag=1; next }
-/\[/{ flag=0; next }
-flag && $1=="InterfaceIn"{ print $2; exit }
-' $CONFIG)"
-    [ -n "$OUT" ] || OUT="$(awk -F '=' -v section="[$SECTION]" '
-BEGIN{ IGNORECASE = 1}
-$0==section { flag=1; next }
-/\[/{ flag=0; next }
-flag && $1=="InterfaceOut"{ print $2; exit }
-' $CONFIG)"
+    [ -n "$INT" ] || INT="$(read_section InterfaceIn)"
+    [ -n "$OUT" ] || OUT="$(read_section InterfaceOut)"
     # Read resolve.conf
-    [ -n "$RESOLVE" ] || RESOLVE="$(awk -F '=' -v section="[$SECTION]" '
-BEGIN{ IGNORECASE = 1}
-$0==section { flag=1; next }
-/\[/{ flag=0; next }
-flag && $1=="Resolve"{ print $2; exit }
-' $CONFIG)"
+    [ -n "$RESOLVE" ] || RESOLVE="$(read_section Resolve)"
 fi
 
 # If NS is empty set the default value "vpn$MAXNS"
