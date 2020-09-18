@@ -17,6 +17,10 @@
 
 #include <sched.h>
 
+#include <libgen.h>
+#define _XOPEN_SOURCE
+#include <limits.h>
+
 // Emit log message
 #define ERR(format, ...) \
     { \
@@ -39,6 +43,9 @@ char *netns = 0;
 char **args = 0;
 char **envs = 0;
 int *glob_pid = 0;
+char runns_socket[PATH_MAX] = DEFAULT_RUNNS_SOCKET;
+char *runns_socket_dir;
+enum is_default_dir {default_dir, not_default_dir} defdir = default_dir;
 
 int
 drop_priv(uid_t _uid, struct passwd **pw);
@@ -55,11 +62,72 @@ free_tvars();
 int
 create_ptms();
 
+struct option opts[] =
+{
+  { .name = "help", .has_arg = 0, .flag = 0, .val = 'h' },
+  { .name = "dir", .has_arg = 1, .flag = 0, .val = 'd' },
+  { .name = "socket", .has_arg = 1, .flag = 0, .val = 's' },
+  { 0, 0, 0, 0 }
+};
+
+void
+help_me()
+{
+  const char *hstr = \
+"runns [options]\n"                                                                          \
+"Options:\n"                                                                                 \
+"-h|--help             help\n"                                                               \
+"-s|--socket           override default runns socket path (" DEFAULT_RUNNS_SOCKET ")\n";
+
+  puts(hstr);
+  exit(EXIT_SUCCESS);
+}
+
 int
 main(int argc, char **argv)
 {
+  const char *optstring = "hs:";
+  int opt;
+  int len;
+
+  while ((opt = getopt_long(argc, argv, optstring, opts, 0)) != -1)
+  {
+    switch (opt)
+    {
+      case 'h':
+        help_me();
+        break;
+      case 's':
+        // Get absolute path
+        if (!realpath(dirname(optarg), runns_socket))
+        {
+          fputs("Can't get a real path\n", stderr);
+          ERR("Can't get a real path of the socket filename");
+        }
+        len = strlen(runns_socket);
+        runns_socket[len] = '/';
+        runns_socket[++len] = '\0';
+
+        strncat(runns_socket,
+                basename(optarg),
+                PATH_MAX - len - 1 /* subtract len and new line */);
+        len = strlen(runns_socket);
+        if (len >= RUNNS_MAXLEN)
+        {
+          fputs("Socket file name is too long > " STR_TOKEN(RUNNS_MAXLEN) "\n", stderr);
+          ERR("Socket file name length is greater than " STR_TOKEN(RUNNS_MAXLEN));
+        }
+        defdir = not_default_dir;
+        break;
+      default:
+        ERR("Wrong option: %c", (char)opt);
+    }
+  }
+
   struct passwd *pw = NULL;
-  struct sockaddr_un addr = {.sun_family = AF_UNIX, .sun_path = defsock};
+  struct sockaddr_un addr = {.sun_family = AF_UNIX, .sun_path = {0}};
+  memcpy(addr.sun_path, runns_socket, strlen(runns_socket) + 1);
+  runns_socket_dir = dirname(runns_socket);
 
   // Check the root
   if (getuid() != 0)
@@ -78,8 +146,11 @@ main(int argc, char **argv)
 
   // Set safe umask and create directory.
   umask(0022);
-  if (mkdir(RUNNS_DIR, 0755) < 0)
-    ERR("Can't create directory %s", RUNNS_DIR);
+  if (defdir == default_dir)
+  {
+    if (mkdir(runns_socket_dir, 0755) < 0)
+      ERR("Can't create directory %s", runns_socket_dir);
+  }
 
   // Up daemon socket.
   sockfd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -306,8 +377,9 @@ stop_daemon(int flag)
   if (sockfd)
   {
     close(sockfd);
-    unlink(defsock);
-    rmdir(RUNNS_DIR);
+    unlink(runns_socket);
+    if (defdir == default_dir)
+      rmdir(runns_socket_dir);
   }
   free_tvars();
   munmap(glob_pid, sizeof(glob_pid));

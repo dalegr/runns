@@ -21,9 +21,11 @@
 #include <signal.h>
 #include <termios.h>
 
+#define STR_TOKEN(x) #x
+
 // Linux socket default file.
-#define RUNNS_DIR "/var/run/runns/"
-#define defsock RUNNS_DIR "runns.socket"
+#define DEFAULT_RUNNS_SOCKET "/var/run/runns/runns.socket"
+#define RUNNS_MAXLEN sizeof(((struct sockaddr_un *)0)->sun_path)
 
 // Maximum number of childs
 #define MAX_CHILDS 1024

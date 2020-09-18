@@ -12,7 +12,7 @@
       fprintf(stderr, "client.c:%d / errno=%d / " format "\n", __LINE__, errno, ##__VA_ARGS__); \
       ret = EXIT_FAILURE;
 
-enum wide_opts {OPT_SET_NETNS = 0xFF01};
+enum wide_opts {OPT_SET_NETNS = 0xFF01, OPT_SOCKET = 0xFF02};
 
 struct option opts[] =
 {
@@ -23,6 +23,7 @@ struct option opts[] =
   { .name = "list", .has_arg = 0, .flag = 0, .val = 'l' },
   { .name = "create-ptms", .has_arg = 0, .flag = 0, .val = 't' },
   { .name = "set-netns", .has_arg = 1, .flag = 0, .val = OPT_SET_NETNS },
+  { .name = "socket", .has_arg = 1, .flag = 0, .val = OPT_SOCKET },
   { 0, 0, 0, 0 }
 };
 
@@ -40,6 +41,7 @@ help_me()
 "-p|--program <path>   program to run in desired netns\n"       \
 "-t|--create-ptms      create control terminal\n"               \
 "--set-netns <path>    network namespace to switch\n"           \
+"--socket <path>       path to the runns socket\n"              \
 "-v|--verbose          be verbose\n";
 
   puts(hstr);
@@ -50,10 +52,10 @@ int
 main(int argc, char **argv)
 {
   struct runns_header hdr = {0};
-  struct sockaddr_un addr = {.sun_family = AF_UNIX, .sun_path = defsock};
+  struct sockaddr_un addr = {.sun_family = AF_UNIX, .sun_path = DEFAULT_RUNNS_SOCKET};
   const char *prog = 0, *netns = 0, *args = 0;
   const char *optstring = "hp:vslt";
-  int opt;
+  int opt, len;
   char verbose = 0;
   int sockfd = 0;
   int ret = EXIT_SUCCESS;
@@ -90,6 +92,15 @@ main(int argc, char **argv)
     case OPT_SET_NETNS:
         netns = optarg;
         hdr.netns_sz = strlen(netns) + 1;
+        break;
+      case OPT_SOCKET:
+        len = strlen(optarg);
+        if (len >= RUNNS_MAXLEN)
+        {
+          ERR("Socket file name is too long > " STR_TOKEN(RUNNS_MAXLEN) "\n");
+          goto _exit;
+        }
+        memcpy(addr.sun_path, optarg, len + 1);
         break;
       default:
         ERR("Wrong option: %c", (char)opt);
