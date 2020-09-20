@@ -89,7 +89,7 @@ main(int argc, char **argv)
       case 'v':
         verbose = 1;
         break;
-    case OPT_SET_NETNS:
+      case OPT_SET_NETNS:
         netns = optarg;
         hdr.netns_sz = strlen(netns) + 1;
         break;
